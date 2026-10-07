@@ -12,10 +12,34 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 STAGE = "RAW.STAGE_CARGA"
 TABLAS = {"CUOTAS", "PARTIDOS"}
+VARIABLES_REQUERIDAS = ("account", "login", "warehouse", "database", "role")
+
+
+class ConfiguracionSnowflakeError(RuntimeError):
+    """Falta configurar Snowflake en el .env o la llave privada en secrets/."""
+
+
+def validar_config_snowflake(config: Mapping[str, Any], ruta_llave: str | None) -> None:
+    """Falla con un mensaje que dice exactamente qué completar."""
+    faltan = [
+        f"SNOWFLAKE_{c.upper().replace('LOGIN', 'USER')}"
+        for c in VARIABLES_REQUERIDAS
+        if not config.get(c)
+    ]
+    if faltan:
+        raise ConfiguracionSnowflakeError(
+            f"Faltan valores de Snowflake en el .env: {', '.join(faltan)}"
+        )
+    if not ruta_llave or not Path(ruta_llave).is_file():
+        raise ConfiguracionSnowflakeError(
+            f"No existe la llave privada {ruta_llave!r}: generala con "
+            "include/apuestas/llaves.py (ver README)"
+        )
 
 
 def _validar(tabla: str, fecha_carga: str) -> str:

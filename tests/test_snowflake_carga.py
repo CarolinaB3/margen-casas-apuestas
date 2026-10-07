@@ -4,7 +4,13 @@ import json
 
 import pytest
 
-from apuestas.snowflake_carga import partidos_a_ndjson, ruta_en_stage, sentencias_carga
+from apuestas.snowflake_carga import (
+    ConfiguracionSnowflakeError,
+    partidos_a_ndjson,
+    ruta_en_stage,
+    sentencias_carga,
+    validar_config_snowflake,
+)
 
 
 def test_orden_put_delete_copy():
@@ -47,3 +53,31 @@ def test_partidos_a_ndjson_un_partido_por_linea():
 
 def test_partidos_a_ndjson_sin_partidos():
     assert partidos_a_ndjson({"matches": []}) == ""
+
+
+CONFIG_OK = {
+    "account": "org-cuenta",
+    "login": "PIPELINE_USUARIO",
+    "warehouse": "APUESTAS_WH",
+    "database": "APUESTAS",
+    "role": "PIPELINE_ROL",
+}
+
+
+def test_config_snowflake_completa(tmp_path):
+    llave = tmp_path / "k.p8"
+    llave.write_text("x")
+    validar_config_snowflake(CONFIG_OK, str(llave))
+
+
+def test_config_snowflake_dice_que_falta():
+    config = {**CONFIG_OK, "account": "", "login": None}
+    with pytest.raises(ConfiguracionSnowflakeError) as error:
+        validar_config_snowflake(config, "/no/existe")
+    assert "SNOWFLAKE_ACCOUNT" in str(error.value)
+    assert "SNOWFLAKE_USER" in str(error.value)
+
+
+def test_config_snowflake_sin_llave(tmp_path):
+    with pytest.raises(ConfiguracionSnowflakeError, match="llave privada"):
+        validar_config_snowflake(CONFIG_OK, str(tmp_path / "no-existe.p8"))

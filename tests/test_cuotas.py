@@ -15,6 +15,7 @@ from apuestas.cuotas import (
     leer_cuotas_csv,
     normalizar_probabilidades,
     probabilidades_implicitas,
+    url_csv_temporada,
 )
 
 # Primer partido real de la Premier 2025/26 (Bet365, apertura).
@@ -147,3 +148,9 @@ def test_filas_a_ndjson_una_linea_json_por_partido():
     lineas = filas_a_ndjson(filas).splitlines()
     assert len(lineas) == 2
     assert json.loads(lineas[1])["HomeTeam"] == "Arsenal"
+
+
+def test_url_csv_por_temporada():
+    assert url_csv_temporada(2025).endswith("/mmz4281/2526/E0.csv")
+    assert url_csv_temporada(2026).endswith("/mmz4281/2627/E0.csv")
+    assert url_csv_temporada(2099).endswith("/mmz4281/9900/E0.csv")

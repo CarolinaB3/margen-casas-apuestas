@@ -13,6 +13,15 @@ jobs:
     env:
       AIRFLOW_HOME: ${{ github.workspace }}/.airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      # Cosmos lista los modelos con dbt al cargar el DAG: dbt va en su propio venv.
+      DBT_EXECUTABLE_PATH: ${{ github.workspace }}/.dbt_venv/bin/dbt
+      # Valores de mentira: dbt los exige para leer profiles.yml, pero no se conecta.
+      SNOWFLAKE_ACCOUNT: ci
+      SNOWFLAKE_USER: ci
+      SNOWFLAKE_ROLE: ci
+      SNOWFLAKE_WAREHOUSE: ci
+      SNOWFLAKE_DATABASE: APUESTAS
+      SNOWFLAKE_PRIVATE_KEY_PATH: /dev/null
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +37,15 @@ jobs:
         run: >
           pip install "apache-airflow==2.10.5" -r requirements.txt -r requirements-dev.txt
           --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.12.txt"
+
+      - name: Instalar dbt en un virtualenv aparte (igual que en la imagen)
+        run: |
+          python -m venv .dbt_venv
+          .dbt_venv/bin/pip install "dbt-core==1.12.5" "dbt-snowflake==1.12.1"
+
+      - name: Validar el proyecto dbt (sin conexión)
+        working-directory: dbt/apuestas
+        run: ../../.dbt_venv/bin/dbt parse --profiles-dir .
 
       - name: Lint (ruff)
         run: ruff check .
