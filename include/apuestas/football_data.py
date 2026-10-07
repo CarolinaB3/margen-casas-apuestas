@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from datetime import date
 from typing import Any
 
 import requests
@@ -94,6 +95,11 @@ class FootballDataClient:
         if "matches" not in datos:
             raise ValueError("Respuesta inesperada de la API: falta la clave 'matches'")
         return datos
+
+
+def temporada_de(fecha: date) -> int:
+    """Año de inicio de la temporada europea: agosto 2025 a mayo 2026 = 2025."""
+    return fecha.year if fecha.month >= 7 else fecha.year - 1
 
 
 def resumir_partidos(datos: dict[str, Any]) -> dict[str, int]:

@@ -120,6 +120,12 @@ def filas_a_ndjson(filas: Iterable[Mapping[str, str]]) -> str:
     return "".join(json.dumps(dict(f), ensure_ascii=False) + "\n" for f in filas)
 
 
+def url_csv_temporada(temporada: int, division: str = "E0") -> str:
+    """URL del CSV de una temporada: 2026 (2026/27) -> .../mmz4281/2627/E0.csv."""
+    codigo = f"{temporada % 100:02d}{(temporada + 1) % 100:02d}"
+    return f"https://www.football-data.co.uk/mmz4281/{codigo}/{division}.csv"
+
+
 def filtrar_archivos_csv(nombres: Iterable[str]) -> list[str]:
     """Del listado del SFTP, solo los CSV (descarta .gitkeep y otros)."""
     return sorted(n for n in nombres if n.lower().endswith(".csv"))

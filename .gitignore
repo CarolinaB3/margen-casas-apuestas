@@ -9,6 +9,7 @@ secrets/*
 __pycache__/
 *.py[cod]
 .venv/
+.dbt_venv/
 .pytest_cache/
 .ruff_cache/
 

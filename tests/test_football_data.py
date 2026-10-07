@@ -1,5 +1,6 @@
 """Tests del cliente de football-data.org con respuestas simuladas (sin red)."""
 
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,6 +13,7 @@ from apuestas.football_data import (
     RateLimitError,
     resumir_partidos,
     segundos_de_espera,
+    temporada_de,
 )
 
 PARTIDOS = {
@@ -111,3 +113,11 @@ def test_segundos_de_espera_acotados():
 
 def test_resumir_partidos_por_estado():
     assert resumir_partidos(PARTIDOS) == {"FINISHED": 2, "SCHEDULED": 1}
+
+
+@pytest.mark.parametrize(
+    ("fecha", "temporada"),
+    [(date(2025, 8, 15), 2025), (date(2026, 5, 24), 2025), (date(2026, 7, 1), 2026)],
+)
+def test_temporada_de(fecha, temporada):
+    assert temporada_de(fecha) == temporada
