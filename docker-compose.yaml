@@ -35,10 +35,27 @@ x-airflow-common: &airflow-common
     AIRFLOW_CONN_FOOTBALL_DATA_API: >-
       {"conn_type": "http", "host": "https://api.football-data.org",
        "password": "${FOOTBALL_DATA_API_KEY:-}"}
+    # Snowflake: usuario de servicio con llave RSA (sin contraseña). La llave privada
+    # vive en secrets/ (ignorada por git) y se monta como solo lectura.
+    AIRFLOW_CONN_SNOWFLAKE_DEFAULT: >-
+      {"conn_type": "snowflake", "login": "${SNOWFLAKE_USER:-}", "schema": "RAW",
+       "extra": {"account": "${SNOWFLAKE_ACCOUNT:-}",
+                 "warehouse": "${SNOWFLAKE_WAREHOUSE:-}",
+                 "database": "${SNOWFLAKE_DATABASE:-}",
+                 "role": "${SNOWFLAKE_ROLE:-}",
+                 "private_key_file": "/opt/airflow/secrets/snowflake_rsa_key.p8"}}
+    # dbt lee estas variables con env_var() desde profiles.yml.
+    SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-}
+    SNOWFLAKE_USER: ${SNOWFLAKE_USER:-}
+    SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-}
+    SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-}
+    SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-}
+    SNOWFLAKE_PRIVATE_KEY_PATH: /opt/airflow/secrets/snowflake_rsa_key.p8
   volumes:
     - ./dags:/opt/airflow/dags
     - ./include:/opt/airflow/include
     - ./dbt:/opt/airflow/dbt
+    - ./secrets:/opt/airflow/secrets:ro
     # Logs en volumen con nombre: en Windows un bind mount de logs da problemas de permisos.
     - airflow-logs:/opt/airflow/logs
   user: "${AIRFLOW_UID:-50000}:0"

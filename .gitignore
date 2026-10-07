@@ -1,5 +1,7 @@
 # Secretos: nunca a git
 .env
+secrets/*
+!secrets/.gitkeep
 *.pem
 *.p8
 
