@@ -10,3 +10,6 @@ extend-exclude = ["dbt"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apuestas"]
