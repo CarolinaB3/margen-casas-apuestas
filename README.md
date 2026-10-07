@@ -54,3 +54,14 @@ docker compose ps
 de una sola vez (migrar la base de Airflow y crear el bucket y el usuario de MinIO).
 
 Para apagar: `docker compose down`. Para borrar además los datos: `docker compose down -v`.
+
+## Tests
+
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install "apache-airflow==2.10.5" -r requirements.txt -r requirements-dev.txt `
+  --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.12.txt"
+ruff check .
+pytest
+```
