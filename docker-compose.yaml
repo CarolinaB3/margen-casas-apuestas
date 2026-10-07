@@ -1,0 +1,192 @@
+# Entorno local del pipeline: Airflow (LocalExecutor) + Postgres + Minio + SFTP.
+# Todas las credenciales salen del archivo .env (ver .env.example). Ninguna vive acá.
+#
+#   docker compose up -d --build
+#
+# Airflow UI:     http://localhost:8080
+# Minio consola:  http://localhost:9001
+# SFTP:           localhost:2222
+
+x-airflow-common: &airflow-common
+  build: .
+  image: margen-casas-apuestas/airflow:local
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-}
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?Falta AIRFLOW_SECRET_KEY en .env}
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+    # La lógica de negocio vive en include/ y se importa como paquete "apuestas".
+    PYTHONPATH: /opt/airflow/include
+    # Connections definidas por variables de entorno: Airflow las lee sin guardarlas en código.
+    AIRFLOW_CONN_MINIO_S3: >-
+      {"conn_type": "aws",
+       "login": "${MINIO_PIPELINE_USER:?Falta MINIO_PIPELINE_USER en .env}",
+       "password": "${MINIO_PIPELINE_PASSWORD:?Falta MINIO_PIPELINE_PASSWORD en .env}",
+       "extra": {"endpoint_url": "http://minio:9000", "region_name": "us-east-1"}}
+    AIRFLOW_CONN_SFTP_PROVEEDOR: >-
+      {"conn_type": "sftp", "host": "sftp", "port": 22,
+       "login": "${SFTP_USER:?Falta SFTP_USER en .env}",
+       "password": "${SFTP_PASSWORD:?Falta SFTP_PASSWORD en .env}",
+       "extra": {"no_host_key_check": true}}
+    AIRFLOW_CONN_FOOTBALL_DATA_API: >-
+      {"conn_type": "http", "host": "https://api.football-data.org",
+       "password": "${FOOTBALL_DATA_API_KEY:-}"}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./include:/opt/airflow/include
+    - ./dbt:/opt/airflow/dbt
+    # Logs en volumen con nombre: en Windows un bind mount de logs da problemas de permisos.
+    - airflow-logs:/opt/airflow/logs
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on: &airflow-depends-on
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+  airflow-init:
+    <<: *airflow-common
+    command: version
+    environment:
+      <<: *airflow-env
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:?Falta _AIRFLOW_WWW_USER_PASSWORD en .env}
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+      sftp:
+        condition: service_started
+
+  # Ejecuta los sensores deferrable (los que liberan el slot mientras esperan).
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # MinIO oficial dejó de publicar imágenes en Docker Hub: se usa la build de Chainguard
+  # (mismo binario de MinIO). Es distroless: sin shell, por eso no tiene healthcheck
+  # interno y minio-init espera a que responda.
+  minio:
+    image: chainguard/minio:latest
+    command: server /data --console-address ":9001"
+    # La imagen corre como usuario 65532; el volumen nuevo nace con dueño root.
+    user: "0"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Falta MINIO_ROOT_USER en .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Falta MINIO_ROOT_PASSWORD en .env}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    restart: always
+
+  # Crea el bucket privado "raw" y un usuario del pipeline que SOLO puede tocar ese bucket.
+  # Airflow nunca usa el usuario root de MinIO (permisos mínimos). Es idempotente.
+  minio-init:
+    build: ./infra/minio
+    image: margen-casas-apuestas/minio-init:local
+    depends_on:
+      minio:
+        condition: service_started
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_PIPELINE_USER: ${MINIO_PIPELINE_USER}
+      MINIO_PIPELINE_PASSWORD: ${MINIO_PIPELINE_PASSWORD}
+    volumes:
+      - ./infra/minio:/infra:ro
+    command:
+      - -c
+      - |
+        set -e
+        echo "Esperando a MinIO..."
+        i=0
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" >/dev/null 2>&1; do
+          i=$$((i+1)); [ "$$i" -ge 30 ] && { echo "MinIO no respondió en 60 s"; exit 1; }
+          sleep 2
+        done
+        mc mb --ignore-existing local/raw
+        mc anonymous set none local/raw
+        mc admin policy create local pipeline-raw /infra/politica-pipeline.json
+        mc admin user add local "$$MINIO_PIPELINE_USER" "$$MINIO_PIPELINE_PASSWORD"
+        mc admin policy attach local pipeline-raw --user "$$MINIO_PIPELINE_USER" 2>/dev/null || echo "Política ya asignada"
+        echo "MinIO listo: bucket raw privado + usuario del pipeline"
+
+  # Simula al proveedor que deja el CSV de cuotas por SFTP.
+  sftp:
+    image: atmoz/sftp:alpine
+    # La imagen solo se publica para amd64; en Mac con Apple Silicon corre emulada.
+    platform: linux/amd64
+    command: "${SFTP_USER}:${SFTP_PASSWORD}:1001::entrada"
+    ports:
+      - "2222:22"
+    volumes:
+      - ./sftp/entrada:/home/${SFTP_USER}/entrada
+    restart: always
+
+volumes:
+  postgres-data:
+  minio-data:
+  airflow-logs:
