@@ -1,0 +1,28 @@
+# Secretos: nunca a git
+.env
+*.pem
+*.p8
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Airflow
+logs/
+airflow.db
+
+# Dbt
+dbt/apuestas/target/
+dbt/apuestas/dbt_packages/
+dbt/apuestas/logs/
+
+# Datos locales de los contenedores
+data/
+sftp/entrada/*.csv
+
+# Sistema
+.DS_Store
+Thumbs.db

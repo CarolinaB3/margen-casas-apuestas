@@ -1,0 +1,7 @@
+# Todo en LF: los contenedores son Linux y un CRLF rompe scripts y entrypoints.
+* text=auto eol=lf
+# Los scripts de PowerShell se quedan en CRLF para Windows.
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.pdf binary
