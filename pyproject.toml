@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# La lógica de negocio se importa como paquete "apuestas", igual que dentro del contenedor.
+pythonpath = ["include"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["dbt"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
