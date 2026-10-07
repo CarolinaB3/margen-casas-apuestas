@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: int_probabilidades_implicitas
+    description: >
+      Una fila por partido x casa x momento x resultado, con la probabilidad implícita,
+      el margen del mercado y la probabilidad sin margen.
+    data_tests:
+      - probabilidades_suman_uno:
+          arguments:
+            column_name: prob_normalizada
+            agrupar_por: ["partido_id", "casa_codigo", "momento"]
+          config:
+            severity: error
+    columns:
+      - name: cuota_id
+        data_tests: [unique, not_null]
+      - name: overround
+        description: Margen de la casa en ese mercado (0.05 = 5 %).
+        data_tests: [not_null]
+      - name: prob_normalizada
+        data_tests: [not_null]

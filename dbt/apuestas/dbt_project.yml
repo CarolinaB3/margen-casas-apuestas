@@ -1,0 +1,36 @@
+name: apuestas
+version: "1.0.0"
+config-version: 2
+profile: apuestas
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: target
+clean-targets: [target, dbt_packages]
+
+vars:
+  # Casas que se analizan (códigos del CSV de football-data.co.uk).
+  # Si una temporada no trae alguna, sus cuotas quedan nulas y se descartan en staging.
+  casas: ["B365", "BFD", "BMGM", "BV", "BW", "CL", "LB", "PS", "WH"]
+
+models:
+  apuestas:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
+
+seeds:
+  apuestas:
+    equipos:
+      +column_types:
+        nombre_api: varchar
+        nombre_csv: varchar
+    casas:
+      +column_types:
+        codigo: varchar
+        nombre: varchar

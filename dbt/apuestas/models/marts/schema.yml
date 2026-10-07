@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: mart_margen_por_casa
+    description: Margen (overround) por casa, momento (apertura/cierre) y jornada.
+    columns:
+      - name: casa_codigo
+        data_tests: [not_null]
+      - name: margen_promedio
+        data_tests: [not_null]
+      - name: partidos
+        data_tests: [not_null]
+
+  - name: mart_acierto_por_casa
+    description: Brier score promedio por casa y momento. Más bajo = predice mejor.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: "casa_codigo || '|' || momento"
+    columns:
+      - name: casa_codigo
+        data_tests: [not_null]
+      - name: brier_promedio
+        data_tests: [not_null]
+      - name: ranking
+        data_tests: [not_null]
