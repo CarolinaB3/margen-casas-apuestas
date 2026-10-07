@@ -1,0 +1,17 @@
+version: 2
+
+seeds:
+  - name: equipos
+    description: >
+      Equivalencia de nombres entre la API (shortName de football-data.org) y el CSV
+      (football-data.co.uk). Las dos fuentes escriben distinto algunos equipos.
+    columns:
+      - name: nombre_api
+        data_tests: [unique, not_null]
+      - name: nombre_csv
+        data_tests: [unique, not_null]
+  - name: casas
+    description: Código de cada casa en el CSV y su nombre comercial.
+    columns:
+      - name: codigo
+        data_tests: [unique, not_null]

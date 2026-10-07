@@ -21,6 +21,7 @@ airflow.db
 dbt/apuestas/target/
 dbt/apuestas/dbt_packages/
 dbt/apuestas/logs/
+dbt/apuestas/.user.yml
 
 # Datos locales de los contenedores
 data/

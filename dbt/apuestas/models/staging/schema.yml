@@ -1,0 +1,60 @@
+version: 2
+
+models:
+  - name: stg_cuotas
+    description: Cuotas en formato largo (partido x casa x momento x resultado).
+    columns:
+      - name: cuota_id
+        data_tests: [unique, not_null]
+      - name: partido_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_partidos')
+                field: partido_id
+              config:
+                # warn: si la API cambia un nombre de equipo, se avisa sin frenar el pipeline
+                severity: warn
+      - name: casa_codigo
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('casas')
+                field: codigo
+      - name: momento
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["apertura", "cierre"]
+      - name: resultado
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["H", "D", "A"]
+      - name: resultado_real
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["H", "D", "A"]
+      - name: cuota
+        data_tests:
+          - not_null
+          - cuota_mayor_a_uno:
+              config:
+                severity: warn
+
+  - name: stg_partidos
+    description: Partidos de la temporada según la API (calendario, jornada y estado).
+    columns:
+      - name: partido_api_id
+        data_tests: [unique, not_null]
+      - name: partido_id
+        data_tests: [unique, not_null]
+      - name: estado
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["SCHEDULED", "TIMED", "IN_PLAY", "PAUSED", "FINISHED",
+                         "SUSPENDED", "POSTPONED", "CANCELLED", "AWARDED"]

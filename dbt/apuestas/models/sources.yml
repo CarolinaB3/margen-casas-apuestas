@@ -1,0 +1,26 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Datos tal como llegan de las fuentes, cargados por Airflow.
+    database: "{{ env_var('SNOWFLAKE_DATABASE', 'APUESTAS') }}"
+    schema: RAW
+    config:
+      loaded_at_field: cargado_en
+      freshness:
+        warn_after: {count: 8, period: day}
+    tables:
+      - name: cuotas
+        description: Una fila por partido del CSV de football-data.co.uk (JSON en `datos`).
+        columns:
+          - name: datos
+            data_tests: [not_null]
+          - name: fecha_carga
+            data_tests: [not_null]
+      - name: partidos
+        description: Un partido de la API de football-data.org por fila (JSON en `datos`).
+        columns:
+          - name: datos
+            data_tests: [not_null]
+          - name: fecha_carga
+            data_tests: [not_null]
